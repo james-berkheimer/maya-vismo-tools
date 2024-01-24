@@ -1,0 +1,173 @@
+print("mmTurbulizeSingle_v001 2016\n");
+print("Turbulizes meshes, nurbs surfaces and curves and lattices only.\n\n");
+
+select `ls -selection -dag -leaf -type nurbsCurve -type lattice -type particle -type nParticle -type nurbsSurface -type mesh`; //select shape nodes of selected objects filtered by type
+string $objNameArray[] = `ls -selection`; //get list of selected objects filtered by type
+if (size ($objNameArray)==0){
+    error "No meshes, nurbs surfaces, curves or lattices selected!";
+}
+
+pickWalk -direction up;//get the transform(s); deformers get added via the transform node.
+$objNameArray = `ls -selection`; //get list of selected objects' transforms filtered by type
+print ($objNameArray);
+print("\n");
+select -clear;
+
+string $objName;
+int $numGeo = `size $objNameArray`;
+string $texDefName="turbTextureDeformer";
+string $texDefHandleName=("textureDeformerHandle1");
+string $texDefHanNewName;
+string $noiseName;
+string $attr1Name;
+string $attr2Name;
+string $placementName;
+string $newNameArray[];
+string $groupName="turbulizeGroup0";
+string $xDefName;
+string $yDefName;
+string $zDefName;
+
+group -empty -n $groupName;
+$newNameArray=`ls -selection`; //get name of group just made, as if it's an existing name it will get an incremental number added.
+$groupName=$newNameArray[0];
+addAttr -ln "amplitude" -at double -min 0 -max 10 -dv 0 $groupName;
+$attr1Name=($groupName+".amplitude");
+setAttr -e-keyable true $attr1Name 1;
+string $amplitude=$attr1Name;//used later to connect top-node custom attribute to deformer envelope attr.
+
+addAttr -ln "size" -at double -min 0 -max 10 $groupName;
+$attr1Name=($groupName+".size");
+setAttr -e-keyable true $attr1Name 1;
+string $placementSize=$attr1Name;//used later to connect top-node custom attr to placement node scale values
+
+addAttr -ln "time" -at double -dv 0 $groupName;
+$attr1Name=($groupName+".time");
+setAttr -e-keyable true $attr1Name;
+string $time=$attr1Name;//used later to connect top-node custom attr to noise function time attr.
+setKeyframe -attribute "time" -t 0 -v 0 -inTangentType spline -outTangentType spline $groupName;
+setKeyframe -attribute "time" -t 1 -v .01 -inTangentType spline -outTangentType spline $groupName;
+$attr1Name=($groupName +"_time.preInfinity");
+setAttr $attr1Name 1;
+$attr1Name=($groupName +"_time.postInfinity");
+setAttr $attr1Name 1;
+
+addAttr -ln "pointSpaceLocal" -at bool $groupName;
+$attr1Name=($groupName+".pointSpaceLocal");
+setAttr $attr1Name 1;
+
+//make the noise texture and set its attributes
+$noiseName=("texDefVolNoise0");
+shadingNode -n $noiseName -asTexture volumeNoise;
+$newNameArray=`ls -selection`; //get name of group just made, as if it's an existing name it will get an incremental number added.
+$noiseName=$newNameArray[0];
+$attr1Name=($noiseName+".ratio");
+setAttr $attr1Name .6;
+$attr1Name=($noiseName+".colorOffset");
+setAttr $attr1Name -type double3 -0.5 -0.5 -0.5;
+$attr1Name=($noiseName+".frequency");
+setAttr $attr1Name 4;
+$attr1Name=($noiseName+".noiseType");
+setAttr $attr1Name 0;
+$attr1Name=$time;
+$attr2Name=($noiseName+".time");
+connectAttr $attr1Name $attr2Name;
+
+//create placement node.
+$placementName=($noiseName+"_3dPlacement");
+shadingNode -asUtility-n $placementName place3dTexture;
+$newNameArray=`ls -selection`; //get name of group just made, as if it's an existing name it will get an incremental number added.
+$placementName=$newNameArray[0];
+$attr1Name=($placementName+".worldInverseMatrix");
+$attr2Name=($noiseName+".placementMatrix");
+connectAttr -f $attr1Name $attr2Name;
+$attr1Name=($placementName+".inheritsTransform");
+setAttr $attr1Name 0;
+parent $placementName $groupName;
+$attr1Name=$placementSize;
+$attr2Name=($placementName+".scaleX");
+connectAttr $attr1Name $attr2Name;
+$attr2Name=($placementName+".scaleY");
+connectAttr $attr1Name $attr2Name;
+$attr2Name=($placementName+".scaleZ");
+connectAttr $attr1Name $attr2Name; 
+
+//make the texture deformers for x, y and z deformation
+//X
+select $objNameArray[0];
+print ("texDefName="+$texDefName+"\n");
+textureDeformer -name ($texDefName+"X") -envelope 1 -strength 1 -offset 0 -vectorStrength 1 0 0 -vectorOffset 0 0 0 -vectorSpace "World" -direction "Vector" -pointSpace "Local" -exclusive "";
+$newNameArray=`ls -selection`; //get name of group just made, as if it's an existing name it will get an incremental number added.
+$texDefName=$newNameArray[0];
+$xDefName=$texDefName;
+$attr1Name=($texDefName+".vectorStrength");
+setAttr $attr1Name 1 0 0;
+parent $texDefHandleName $groupName;
+$texDefHanNewName=($texDefName+"Handle0");
+select $texDefHandleName;
+rename $texDefHanNewName;
+$attr1Name=$amplitude;
+$attr2Name=($texDefName+".envelope");
+connectAttr $attr1Name $attr2Name;
+$attr1Name=($noiseName+".outColor");
+$attr2Name=($texDefName+".texture");
+connectAttr $attr1Name $attr2Name;
+$attr1Name= ($groupName+".pointSpaceLocal");
+$attr2Name=($texDefName+".pointSpace");
+connectAttr $attr1Name $attr2Name;
+//Y 
+select $objNameArray[0];
+print ("texDefName="+$texDefName+"\n");
+textureDeformer -name ($texDefName+"Y") -envelope 1 -strength 1 -offset 0 -vectorStrength 1 0 0 -vectorOffset 0 0 0 -vectorSpace "World" -direction "Vector" -pointSpace "Local" -exclusive "";
+$newNameArray=`ls -selection`; //get name of group just made, as if it's an existing name it will get an incremental number added.
+$texDefName=$newNameArray[0];
+$yDefName=$texDefName;
+$attr1Name=($texDefName+".vectorStrength");
+setAttr $attr1Name 0 1 0;
+parent $texDefHandleName $groupName;
+$texDefHanNewName=($texDefName+"Handle0");
+select $texDefHandleName;
+rename $texDefHanNewName;
+$attr1Name=$amplitude;
+$attr2Name=($texDefName+".envelope");
+connectAttr $attr1Name $attr2Name;
+$attr1Name=($noiseName+".outColor");
+$attr2Name=($texDefName+".texture");
+connectAttr $attr1Name $attr2Name;
+$attr1Name= ($groupName+".pointSpaceLocal");
+$attr2Name=($texDefName+".pointSpace");
+connectAttr $attr1Name $attr2Name;
+//Z
+select $objNameArray[0];
+print ("texDefName="+$texDefName+"\n");
+textureDeformer -name ($texDefName+"Z") -envelope 1 -strength 1 -offset 0 -vectorStrength 1 0 0 -vectorOffset 0 0 0 -vectorSpace "World" -direction "Vector" -pointSpace "Local" -exclusive "";
+$newNameArray=`ls -selection`; //get name of group just made, as if it's an existing name it will get an incremental number added.
+$texDefName=$newNameArray[0];
+$zDefName=$texDefName;
+$attr1Name=($texDefName+".vectorStrength");
+setAttr $attr1Name 0 0 1;
+parent $texDefHandleName $groupName;
+$texDefHanNewName=($texDefName+"Handle0");
+select $texDefHandleName;
+rename $texDefHanNewName;
+$attr1Name=$amplitude;
+$attr2Name=($texDefName+".envelope");
+connectAttr $attr1Name $attr2Name;
+$attr1Name=($noiseName+".outColor");
+$attr2Name=($texDefName+".texture");
+connectAttr $attr1Name $attr2Name;
+$attr1Name= ($groupName+".pointSpaceLocal");
+$attr2Name=($texDefName+".pointSpace");
+connectAttr $attr1Name $attr2Name;
+
+//connect object(s) to deformer.
+for ($i=0;$i<$numGeo;++$i){
+    $objName=$objNameArray[$i];
+    print ($objName +"\n");
+    select $objName;
+    deformer -e -g $objName $xDefName;
+    deformer -e -g $objName $yDefName;
+deformer -e -g $objName $zDefName;
+}
+
+select $groupName;

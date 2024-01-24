@@ -1,0 +1,94 @@
+global proc int bbjExportOptions ( string $parent,
+								   string $action,
+								   string $initialSettings,
+								   string $resultCallback )
+
+{
+    if ( $action == "post" )
+    {
+        return bbjExportPost( $parent, $initialSettings );
+    }
+    else if ( $action == "query" )
+    {
+        return bbjExportQuery( $resultCallback );
+    }
+    
+    return 0;
+}
+
+global proc int bbjExportPost ( string $parent, string $initialSettings )
+{
+    setParent $parent;
+    
+    columnLayout -adj true bbjTypeCol;
+        radioButtonGrp
+            -label "uvs"
+            -nrb 2      -cw3 175 75 75
+            -labelArray2 "on" "off" bbjUVs;
+        radioButtonGrp
+            -label "normals"
+            -nrb 2      -cw3 175 75 75
+            -labelArray2 "on" "off" bbjNormals;
+            
+    // Set to current settings.
+    if (size( $initialSettings ) > 0)
+    {
+        string $optionList[];
+        string $optionBreakDown[];
+        int $index;
+        tokenize( $initialSettings, ";", $optionList );
+        for ($index = 0; $index < size($optionList); $index++ )
+        {
+            tokenize ($optionList[$index], "=", $optionBreakDown );
+            
+            if( $optionBreakDown[0] == "uvs" )
+            {
+                if( $optionBreakDown[1] == "0" )
+                {
+                    radioButtonGrp -e -sl 2 bbjUVs;
+                }
+                else
+                {
+                    radioButtonGrp -e -sl 1 bbjUVs;
+                }
+            }
+            else if ( $optionBreakDown[0] == "normals" )
+            {
+                if( $optionBreakDown[1] == "0" )
+                {
+                    radioButtonGrp -e -sl 2 bbjUVs;
+                }
+                else
+                {
+                    radioButtonGrp -e -sl 1 bbjUVs;
+                }
+            }
+        }
+    }
+    return 1;
+}
+
+global proc int bbjExportQuery( string $resultCallback )
+{
+    string $optionsString;
+    if ( `radioButtonGrp -q -sl bbjUVs` == 1 )
+    {
+        $optionsString = "uvs=1";
+    }
+    else
+    {
+        $optionsString = "uvs=0";
+    }
+    
+     if ( `radioButtonGrp -q -sl bbjNormals` == 1 )
+    {
+        $optionsString = "normals=1";
+    }
+    else
+    {
+        $optionsString = "normals=0";
+    }
+    
+    eval( $resultCallback + "\"" + $optionsString + "\"" );
+    return 1;
+}
